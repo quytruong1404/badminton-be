@@ -1,0 +1,20 @@
+package com.quy.badmintonbe.booking.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class BookingDetailRequest {
+    private Long courtId;
+    private Long slotId;
+    private LocalDate bookingDate;
+}
