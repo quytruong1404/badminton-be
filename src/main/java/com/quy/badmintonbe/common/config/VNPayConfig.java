@@ -22,6 +22,25 @@ public class VNPayConfig {
     public static final String vnp_TmnCode = "JY3TJ6AJ"; // Test Merchant Code
     public static final String vnp_HashSecret = "IF78KTM4648ZSAHCWCNJ7F5U8OMTVI2Z"; // Test Secret Key
 
+    public static String getReturnUrl(HttpServletRequest request) {
+        String envUrl = System.getenv("VNPAY_RETURN_URL");
+        if (envUrl != null && !envUrl.trim().isEmpty()) {
+            return envUrl.trim();
+        }
+        if (request != null) {
+            String origin = request.getHeader("origin");
+            String referer = request.getHeader("referer");
+            String hostHeader = origin != null ? origin : referer;
+            if (hostHeader != null) {
+                try {
+                    java.net.URI uri = new java.net.URI(hostHeader);
+                    return uri.getScheme() + "://" + uri.getAuthority() + "/payment-result";
+                } catch (Exception ignored) {}
+            }
+        }
+        return vnp_ReturnUrl;
+    }
+
     public static String md5(String message) {
         String digest = null;
         try {
