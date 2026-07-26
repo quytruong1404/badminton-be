@@ -17,20 +17,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
-                        "/api/auth/login",
-                        "/api/auth/register",
-                        "/api/auth/logout",
-                        "/api/auth/forgot-password",
-                        "/api/auth/reset-password",
+                        "/api/auth/**",
                         "/api/payments/vnpay-callback",
-                        "/api/branches/**",
-                        "/api/time-slots/**",
-                        "/api/courts/**",
-                        "/api/bookings/**",
-                        "/api/payments/**",
-                        "/api/products/**",
-                        "/api/vouchers/**",
-                        "/api/pricing/**"
+                        "/api/branches", "/api/branches/**",
+                        "/api/time-slots", "/api/time-slots/**",
+                        "/api/courts", "/api/courts/**",
+                        "/api/pricing", "/api/pricing/**",
+                        "/api/products", "/api/products/**",
+                        "/api/vouchers", "/api/vouchers/**",
+                        "/api/reviews", "/api/reviews/**",
+                        "/api/system-configs", "/api/system-configs/**",
+                        "/api/cancellation-policies", "/api/cancellation-policies/**",
+                        "/api/bookings/occupied-slots",
+                        "/api/public/**"
                 );
     }
 
