@@ -10,7 +10,10 @@ public interface PaymentService {
     List<PaymentDto> getPaymentsByBookingId(Long bookingId);
     List<PaymentDto> getAllPayments();
     PaymentDto createPayment(PaymentDto paymentDto);
-    PaymentDto processPaymentCallback(String transactionCode, String gatewayTransactionId, boolean success);
+    PaymentDto processPaymentCallback(String transactionCode, String gatewayTransactionId, boolean success, String rawResponse);
+    default PaymentDto processPaymentCallback(String transactionCode, String gatewayTransactionId, boolean success) {
+        return processPaymentCallback(transactionCode, gatewayTransactionId, success, null);
+    }
     String createVNPayUrl(Long bookingId, HttpServletRequest request);
     PaymentDto confirmMockPayment(Long paymentId);
 }

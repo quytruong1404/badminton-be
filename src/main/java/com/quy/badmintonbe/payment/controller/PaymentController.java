@@ -99,8 +99,9 @@ public class PaymentController {
 
         // Mã phản hồi thành công của VNPay là "00"
         boolean success = isSignatureValid && "00".equals(responseCode);
+        String rawResponseJson = allRequestParams.toString();
         
-        PaymentDto paymentDto = paymentService.processPaymentCallback(transactionCode, gatewayTransactionId, success);
+        PaymentDto paymentDto = paymentService.processPaymentCallback(transactionCode, gatewayTransactionId, success, rawResponseJson);
 
         ApiResponse<PaymentDto> response = ApiResponse.<PaymentDto>builder()
                 .success(success)

@@ -77,9 +77,13 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentDto processPaymentCallback(String transactionCode, String gatewayTransactionId, boolean success) {
+    public PaymentDto processPaymentCallback(String transactionCode, String gatewayTransactionId, boolean success, String rawResponse) {
         Payment payment = paymentRepository.findByTransactionCode(transactionCode)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch thanh toán với mã giao dịch: " + transactionCode));
+
+        if (rawResponse != null && !rawResponse.trim().isEmpty()) {
+            payment.setRawResponse(rawResponse);
+        }
 
         if (success) {
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
@@ -137,12 +141,16 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Tạo bản ghi giao dịch thanh toán ở trạng thái PENDING chờ xử lý
         String transactionCode = "VNP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        long amount = booking.getTotalPrice().multiply(BigDecimal.valueOf(100)).longValue();
+        String initRaw = "{\"status\":\"PENDING\",\"vnp_TxnRef\":\"" + transactionCode + "\",\"vnp_Amount\":" + amount + "}";
+
         Payment payment = Payment.builder()
                 .booking(booking)
                 .paymentMethod(PaymentMethod.VNPAY)
                 .amount(booking.getTotalPrice())
                 .transactionCode(transactionCode)
                 .paymentStatus(PaymentStatus.PENDING)
+                .rawResponse(initRaw)
                 .build();
         paymentRepository.save(payment);
 
@@ -155,8 +163,6 @@ public class PaymentServiceImpl implements PaymentService {
         String vnp_TmnCode = VNPayConfig.vnp_TmnCode;
 
         // Nhân số tiền với 100 theo đúng định dạng yêu cầu của VNPay
-        long amount = booking.getTotalPrice().multiply(BigDecimal.valueOf(100)).longValue();
-
         Map<String, String> vnp_Params = new java.util.HashMap<>();
         vnp_Params.put("vnp_Version", vnp_Version);
         vnp_Params.put("vnp_Command", vnp_Command);
@@ -226,6 +232,7 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPaymentStatus(PaymentStatus.SUCCESS);
         payment.setPayDate(LocalDateTime.now());
         payment.setGatewayTransactionId("MOCK-GATEWAY-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        payment.setRawResponse("{\"provider\":\"MOCK\",\"status\":\"SUCCESS\",\"method\":\"" + payment.getPaymentMethod() + "\",\"confirmAt\":\"" + LocalDateTime.now() + "\"}");
 
         Booking booking = payment.getBooking();
         booking.setPaymentStatus(PaymentStatus.PAID);
