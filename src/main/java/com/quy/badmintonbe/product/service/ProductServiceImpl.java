@@ -10,11 +10,23 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.quy.badmintonbe.branch.repository.BranchRepository;
+import com.quy.badmintonbe.product.entity.BranchInventory;
+import com.quy.badmintonbe.product.repository.BranchInventoryRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final BranchRepository branchRepository;
+    private final BranchInventoryRepository branchInventoryRepository;
 
     @Override
     public ProductDto getProductById(Long id) {
@@ -31,9 +43,22 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public ProductDto createProduct(ProductDto dto) {
         Product product = mapToEntity(dto);
         Product savedProduct = productRepository.save(product);
+
+        // Tự động khởi tạo tồn kho cho sản phẩm mới tại tất cả chi nhánh
+        branchRepository.findAll().forEach(branch -> {
+            BranchInventory inv = BranchInventory.builder()
+                    .branch(branch)
+                    .product(savedProduct)
+                    .quantity(50)
+                    .lowStockThreshold(5)
+                    .build();
+            branchInventoryRepository.save(inv);
+        });
+
         return mapToDto(savedProduct);
     }
 

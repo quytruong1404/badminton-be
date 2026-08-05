@@ -33,6 +33,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                 uri.startsWith("/api/time-slots") ||
                 uri.startsWith("/api/pricing") ||
                 uri.startsWith("/api/products") ||
+                uri.startsWith("/api/branch-inventories") ||
                 uri.startsWith("/api/vouchers") ||
                 uri.startsWith("/api/reviews") ||
                 uri.startsWith("/api/system-configs") ||

@@ -47,6 +47,15 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import com.quy.badmintonbe.product.service.BranchInventoryService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -70,6 +79,7 @@ public class BookingServiceImpl implements BookingService {
     private final ProductRepository productRepository;
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    private final BranchInventoryService branchInventoryService;
 
     @Override
     public BookingResponse getBookingById(Long id) {
@@ -202,9 +212,10 @@ public class BookingServiceImpl implements BookingService {
             bookingDetailsToSave.add(detail);
         }
 
-        // 3. Xử lý các dịch vụ/sản phẩm đi kèm
+        // 3. Xử lý các dịch vụ/sản phẩm đi kèm & Trừ tồn kho tại chi nhánh tương ứng
         List<BookingServiceItem> serviceItemsToSave = new ArrayList<>();
-        if (dto.getServices() != null) {
+        if (dto.getServices() != null && !dto.getServices().isEmpty()) {
+            Long bookingBranchId = bookingDetailsToSave.get(0).getCourt().getBranch().getId();
             for (BookingServiceRequest svcDto : dto.getServices()) {
                 Product product = productRepository.findById(svcDto.getProductId())
                         .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ/sản phẩm với ID: " + svcDto.getProductId()));
@@ -212,6 +223,9 @@ public class BookingServiceImpl implements BookingService {
                 if (svcDto.getQuantity() == null || svcDto.getQuantity() <= 0) {
                     throw new BadRequestException("Số lượng dịch vụ/sản phẩm mua/thuê phải lớn hơn 0.");
                 }
+
+                // Kiểm tra và trừ kho chi nhánh
+                branchInventoryService.deductStock(bookingBranchId, product.getId(), svcDto.getQuantity());
 
                 BigDecimal itemPrice = product.getPrice().multiply(BigDecimal.valueOf(svcDto.getQuantity()));
                 subTotal = subTotal.add(itemPrice);
