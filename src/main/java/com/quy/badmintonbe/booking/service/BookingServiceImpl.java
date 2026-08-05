@@ -224,6 +224,10 @@ public class BookingServiceImpl implements BookingService {
                     throw new BadRequestException("Số lượng dịch vụ/sản phẩm mua/thuê phải lớn hơn 0.");
                 }
 
+                if (com.quy.badmintonbe.common.enums.ProductStatus.INACTIVE.equals(product.getStatus())) {
+                    throw new BadRequestException("Sản phẩm/Dịch vụ [" + product.getName() + "] hiện đang ngưng cung cấp.");
+                }
+
                 // Kiểm tra và trừ kho chi nhánh
                 branchInventoryService.deductStock(bookingBranchId, product.getId(), svcDto.getQuantity());
 

@@ -32,6 +32,10 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Mật khẩu không chính xác.");
         }
 
+        if (UserStatus.LOCKED.equals(user.getStatus())) {
+            throw new BadRequestException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên để được hỗ trợ.");
+        }
+
         UserDto userDto = mapToDto(user);
         return AuthResponse.builder()
                 .token("mock-jwt-token-for-user-" + user.getId())

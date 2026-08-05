@@ -1,5 +1,7 @@
 package com.quy.badmintonbe.common.config;
 
+import com.quy.badmintonbe.common.enums.UserRole;
+import com.quy.badmintonbe.common.enums.UserStatus;
 import com.quy.badmintonbe.common.exception.AppException;
 import com.quy.badmintonbe.user.dto.UserDto;
 import com.quy.badmintonbe.user.service.UserService;
@@ -71,9 +73,41 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new AppException("Yêu cầu đăng nhập trước khi thực hiện tác vụ.", 401);
         }
 
-        // Kiểm tra vai trò Admin
-        if (uri.contains("/admin/") && !"ADMIN".equals(currentUser.getRole().name())) {
-            throw new AppException("Không có quyền truy cập. Yêu cầu quyền Admin.", 403);
+        if (UserStatus.LOCKED.equals(currentUser.getStatus())) {
+            throw new AppException("Tài khoản của bạn hiện đang bị khóa. Không thể thực hiện tác vụ.", 403);
+        }
+
+        UserRole role = currentUser.getRole();
+
+        // 6. KIỂM TRA PHÂN QUYỀN VAI TRÒ (RBAC) & BẢO VỆ PHẠM VI CHI NHÁNH (DATA SCOPE)
+
+        // Chỉ ADMIN mới được quản lý tài khoản người dùng và cấu hình hệ thống
+        if (uri.startsWith("/api/users") || uri.startsWith("/api/system-configs")) {
+            if (role != UserRole.ADMIN) {
+                throw new AppException("Không có quyền truy cập. Tính năng này chỉ dành cho Admin hệ thống.", 403);
+            }
+        }
+
+        // Chỉ ADMIN mới được tạo, sửa, xóa Chi nhánh
+        if (uri.startsWith("/api/branches") && ! "GET".equalsIgnoreCase(method)) {
+            if (role != UserRole.ADMIN) {
+                throw new AppException("Không có quyền thay đổi thông tin chi nhánh. Chỉ Admin mới được thực hiện.", 403);
+            }
+        }
+
+        // Kiểm tra phạm vi chi nhánh áp dụng cho MANAGER và STAFF
+        if (role == UserRole.MANAGER || role == UserRole.STAFF) {
+            String branchIdParam = request.getParameter("branchId");
+            if (branchIdParam != null && !branchIdParam.trim().isEmpty()) {
+                try {
+                    Long reqBranchId = Long.parseLong(branchIdParam.trim());
+                    Long assignedBranchId = currentUser.getAssignedBranchId();
+                    if (assignedBranchId == null || !assignedBranchId.equals(reqBranchId)) {
+                        throw new AppException("Bạn không có quyền truy cập hoặc thao tác trên chi nhánh khác chi nhánh làm việc.", 403);
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
         }
 
         return true;

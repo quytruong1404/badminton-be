@@ -22,6 +22,8 @@ public class UserDto {
     private String fullName;
     private UserRole role;
     private UserStatus status;
+    private Long assignedBranchId;
+    private String assignedBranchName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

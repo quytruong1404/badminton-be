@@ -1,15 +1,20 @@
 package com.quy.badmintonbe.product.service;
 
+import com.quy.badmintonbe.branch.entity.Branch;
+import com.quy.badmintonbe.branch.repository.BranchRepository;
 import com.quy.badmintonbe.common.exception.BadRequestException;
 import com.quy.badmintonbe.common.exception.ResourceNotFoundException;
 import com.quy.badmintonbe.product.dto.BranchInventoryDto;
 import com.quy.badmintonbe.product.entity.BranchInventory;
+import com.quy.badmintonbe.product.entity.Product;
 import com.quy.badmintonbe.product.repository.BranchInventoryRepository;
+import com.quy.badmintonbe.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -17,6 +22,8 @@ import java.util.stream.Collectors;
 public class BranchInventoryServiceImpl implements BranchInventoryService {
 
     private final BranchInventoryRepository branchInventoryRepository;
+    private final BranchRepository branchRepository;
+    private final ProductRepository productRepository;
 
     @Override
     public List<BranchInventoryDto> getAllInventories(Long branchId) {
@@ -44,6 +51,34 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
 
     @Override
     @Transactional
+    public BranchInventoryDto addBranchInventory(Long branchId, Long productId, Integer quantity, Integer lowStockThreshold) {
+        Branch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với ID: " + branchId));
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm/dịch vụ với ID: " + productId));
+
+        Optional<BranchInventory> existing = branchInventoryRepository.findByBranchIdAndProductId(branchId, productId);
+        if (existing.isPresent()) {
+            throw new BadRequestException("Sản phẩm [" + product.getName() + "] đã có trong kho của chi nhánh [" + branch.getName() + "].");
+        }
+
+        int qty = (quantity != null && quantity >= 0) ? quantity : 50;
+        int threshold = (lowStockThreshold != null && lowStockThreshold >= 0) ? lowStockThreshold : 5;
+
+        BranchInventory newInv = BranchInventory.builder()
+                .branch(branch)
+                .product(product)
+                .quantity(qty)
+                .lowStockThreshold(threshold)
+                .build();
+
+        BranchInventory saved = branchInventoryRepository.save(newInv);
+        return mapToDto(saved);
+    }
+
+    @Override
+    @Transactional
     public BranchInventoryDto updateInventory(Long id, Integer quantity, Integer lowStockThreshold) {
         BranchInventory inventory = branchInventoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin tồn kho với ID: " + id));
@@ -64,6 +99,14 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
 
         BranchInventory saved = branchInventoryRepository.save(inventory);
         return mapToDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteBranchInventory(Long id) {
+        BranchInventory inventory = branchInventoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin tồn kho với ID: " + id));
+        branchInventoryRepository.delete(inventory);
     }
 
     @Override
