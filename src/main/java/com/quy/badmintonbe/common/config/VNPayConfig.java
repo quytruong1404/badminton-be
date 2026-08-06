@@ -19,8 +19,12 @@ public class VNPayConfig {
 
     public static final String vnp_Url = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static final String vnp_ReturnUrl = "http://localhost:3000/payment-result";
-    public static final String vnp_TmnCode = "JY3TJ6AJ"; // Test Merchant Code
-    public static final String vnp_HashSecret = "IF78KTM4648ZSAHCWCNJ7F5U8OMTVI2Z"; // Test Secret Key
+    public static String vnp_TmnCode = System.getenv("VNPAY_TMN_CODE") != null && !System.getenv("VNPAY_TMN_CODE").trim().isEmpty() 
+            ? System.getenv("VNPAY_TMN_CODE").trim() 
+            : "QNNIQBOH";
+    public static String vnp_HashSecret = System.getenv("VNPAY_HASH_SECRET") != null && !System.getenv("VNPAY_HASH_SECRET").trim().isEmpty() 
+            ? System.getenv("VNPAY_HASH_SECRET").trim() 
+            : "OQQKFJQHAINLMNISGCNGMBXZHCQXMFFF";
 
     public static String getReturnUrl(HttpServletRequest request) {
         String envUrl = System.getenv("VNPAY_RETURN_URL");
