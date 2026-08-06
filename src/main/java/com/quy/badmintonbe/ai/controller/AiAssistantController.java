@@ -50,7 +50,6 @@ public class AiAssistantController {
     private final BookingDetailRepository bookingDetailRepository;
     private final BookingServiceRepository bookingServiceRepository;
 
-    // 1. API Chi nhánh: GET /api/public/ai/branches
     @GetMapping("/branches")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBranches() {
         List<Branch> branches = branchRepository.findAll();
@@ -73,7 +72,6 @@ public class AiAssistantController {
                 .build());
     }
 
-    // 2. API Lịch trống sân: GET /api/public/ai/available-courts?date=YYYY-MM-DD
     @GetMapping("/available-courts")
     public ResponseEntity<ApiResponse<Object>> getAvailableCourts(@RequestParam String date) {
         LocalDate localDate;
@@ -86,7 +84,6 @@ public class AiAssistantController {
                     .build());
         }
 
-        // Xác định DayType (WEEKDAY hoặc WEEKEND)
         DayOfWeek dayOfWeek = localDate.getDayOfWeek();
         boolean isWeekend = (dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY);
         DayType dayType = isWeekend ? DayType.WEEKEND : DayType.WEEKDAY;
@@ -114,7 +111,6 @@ public class AiAssistantController {
             courtMap.put("branchName", court.getBranch().getName());
             courtMap.put("status", court.getStatus().toString());
 
-            // Lấy các reservations của riêng sân này
             List<CourtReservation> courtReservations = reservations.stream()
                     .filter(r -> r.getCourt().getId().equals(court.getId()))
                     .collect(Collectors.toList());
@@ -126,7 +122,6 @@ public class AiAssistantController {
 
             int availableSlotsCount = slots.size() - occupiedSlots.size();
 
-            // Lấy khung giá ngày thường và cuối tuần của sân để AI tư vấn giá
             BigDecimal priceWeekday = pricingRules.stream()
                     .filter(pr -> pr.getCourt().getId().equals(court.getId()) && pr.getDayType() == DayType.WEEKDAY)
                     .map(PricingRule::getPrice)
@@ -143,7 +138,7 @@ public class AiAssistantController {
             courtMap.put("priceWeekend", priceWeekend);
             courtMap.put("totalSlotsCount", slots.size());
             courtMap.put("availableSlotsCount", availableSlotsCount);
-            courtMap.put("occupiedSlots", occupiedSlots); // Chỉ liệt kê ca đã bận, các ca còn lại tự hiểu là trống
+            courtMap.put("occupiedSlots", occupiedSlots); 
 
             courtsData.add(courtMap);
         }
@@ -181,7 +176,6 @@ public class AiAssistantController {
                 .build());
     }
 
-    // 3. API Dịch vụ đi kèm: GET /api/public/ai/products
     @GetMapping("/products")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getProducts() {
         List<Product> products = productRepository.findAll().stream()
@@ -192,9 +186,9 @@ public class AiAssistantController {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("productId", p.getId());
             map.put("name", p.getName());
-            map.put("type", p.getProductType().toString()); // SELL / RENT
-            map.put("unit", p.getUnit()); // chai, cay, doi...
-            map.put("chargeType", p.getChargeType().toString()); // PER_UNIT / PER_SLOT
+            map.put("type", p.getProductType().toString()); 
+            map.put("unit", p.getUnit()); 
+            map.put("chargeType", p.getChargeType().toString()); 
             map.put("price", p.getPrice());
             return map;
         }).collect(Collectors.toList());
@@ -206,7 +200,6 @@ public class AiAssistantController {
                 .build());
     }
 
-    // 4. API Khuyến mãi: GET /api/public/ai/vouchers
     @GetMapping("/vouchers")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getVouchers() {
         List<Voucher> vouchers = voucherRepository.findAll().stream()
@@ -216,7 +209,7 @@ public class AiAssistantController {
         List<Map<String, Object>> data = vouchers.stream().map(v -> {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("code", v.getCode());
-            map.put("discountType", v.getDiscountType().toString()); // PERCENT / AMOUNT
+            map.put("discountType", v.getDiscountType().toString()); 
             map.put("discountValue", v.getDiscountValue());
             map.put("minOrderValue", v.getMinOrderValue());
             map.put("maxDiscount", v.getMaxDiscount());
@@ -231,7 +224,6 @@ public class AiAssistantController {
                 .build());
     }
 
-    // 5. API Tra cứu đơn đặt: GET /api/public/ai/booking-lookup?bookingCode=BK-...
     @GetMapping("/booking-lookup")
     public ResponseEntity<ApiResponse<Map<String, Object>>> lookupBooking(@RequestParam String bookingCode) {
         Optional<Booking> bookingOpt = bookingRepository.findByBookingCode(bookingCode);
@@ -247,8 +239,8 @@ public class AiAssistantController {
         data.put("bookingCode", booking.getBookingCode());
         data.put("customerName", booking.getUser().getFullName());
         data.put("totalPrice", booking.getTotalPrice());
-        data.put("bookingStatus", booking.getBookingStatus().toString()); // PENDING, CONFIRMED, COMPLETED, CANCELLED
-        data.put("paymentStatus", booking.getPaymentStatus().toString()); // UNPAID, PAID, REFUNDED...
+        data.put("bookingStatus", booking.getBookingStatus().toString()); 
+        data.put("paymentStatus", booking.getPaymentStatus().toString()); 
         data.put("createdAt", booking.getCreatedAt().toString());
 
         List<BookingDetail> bookingDetails = bookingDetailRepository.findByBookingId(booking.getId());

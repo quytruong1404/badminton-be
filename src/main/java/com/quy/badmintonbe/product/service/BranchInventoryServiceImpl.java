@@ -121,7 +121,6 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
             throw new BadRequestException("Sản phẩm chưa được khởi tạo kho tại chi nhánh này.");
         }
 
-        // Tự động sử dụng bản ghi đầu tiên và dọn dẹp các bản ghi trùng lặp nếu có trong DB
         BranchInventory inventory = inventories.get(0);
         if (inventories.size() > 1) {
             for (int i = 1; i < inventories.size(); i++) {

@@ -20,7 +20,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        // 1. Cho phép các yêu cầu Preflight OPTIONS luôn được thông qua
+        
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
@@ -28,7 +28,6 @@ public class AuthInterceptor implements HandlerInterceptor {
         String uri = request.getRequestURI();
         String method = request.getMethod();
 
-        // 2. Cho phép tất cả các truy vấn GET xem dữ liệu công khai không yêu cầu đăng nhập
         if ("GET".equalsIgnoreCase(method)) {
             if (uri.startsWith("/api/branches") ||
                 uri.startsWith("/api/courts") ||
@@ -46,19 +45,17 @@ public class AuthInterceptor implements HandlerInterceptor {
             }
         }
 
-        // 3. Đường dẫn Auth & Webhook công khai
         if (uri.startsWith("/api/auth/") || uri.startsWith("/api/payments/vnpay-callback")) {
             return true;
         }
 
         UserDto currentUser = null;
 
-        // 4. Kiểm tra Session
         HttpSession session = request.getSession(false);
         if (session != null && session.getAttribute("currentUser") != null) {
             currentUser = (UserDto) session.getAttribute("currentUser");
         } else {
-            // 5. Kiểm tra Header X-User-Id
+            
             String userIdHeader = request.getHeader("X-User-Id");
             if (userIdHeader != null && !userIdHeader.trim().isEmpty()) {
                 try {
@@ -79,23 +76,28 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         UserRole role = currentUser.getRole();
 
-        // 6. KIỂM TRA PHÂN QUYỀN VAI TRÒ (RBAC) & BẢO VỆ PHẠM VI CHI NHÁNH (DATA SCOPE)
+        if (uri.startsWith("/api/users")) {
+            if ("GET".equalsIgnoreCase(method)) {
+                if (role != UserRole.ADMIN && role != UserRole.MANAGER && role != UserRole.STAFF) {
+                    throw new AppException("Không có quyền truy cập.", 403);
+                }
+            } else if (role != UserRole.ADMIN) {
+                throw new AppException("Không có quyền truy cập. Tính năng này chỉ dành cho Admin hệ thống.", 403);
+            }
+        }
 
-        // Chỉ ADMIN mới được quản lý tài khoản người dùng và cấu hình hệ thống
-        if (uri.startsWith("/api/users") || uri.startsWith("/api/system-configs")) {
+        if (uri.startsWith("/api/system-configs")) {
             if (role != UserRole.ADMIN) {
                 throw new AppException("Không có quyền truy cập. Tính năng này chỉ dành cho Admin hệ thống.", 403);
             }
         }
 
-        // Chỉ ADMIN mới được tạo, sửa, xóa Chi nhánh
         if (uri.startsWith("/api/branches") && ! "GET".equalsIgnoreCase(method)) {
             if (role != UserRole.ADMIN) {
                 throw new AppException("Không có quyền thay đổi thông tin chi nhánh. Chỉ Admin mới được thực hiện.", 403);
             }
         }
 
-        // Kiểm tra phạm vi chi nhánh áp dụng cho MANAGER và STAFF
         if (role == UserRole.MANAGER || role == UserRole.STAFF) {
             String branchIdParam = request.getParameter("branchId");
             if (branchIdParam != null && !branchIdParam.trim().isEmpty()) {

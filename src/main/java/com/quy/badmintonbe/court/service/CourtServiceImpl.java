@@ -110,12 +110,10 @@ public class CourtServiceImpl implements CourtService {
         Court court = courtRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sân đấu với ID: " + id));
 
-        // 1. Check if court has any booking details (one-time bookings)
         if (bookingDetailRepository.existsByCourtId(id)) {
             throw new BadRequestException("Không thể xóa sân đấu này vì đã có lịch đặt lẻ của khách hàng trong hệ thống.");
         }
 
-        // 2. Check if court has active subscription schedules (recurring bookings)
         if (subscriptionScheduleRepository.existsByCourtIdAndStatus(id, SlotStatus.ACTIVE)) {
             throw new BadRequestException("Không thể xóa sân đấu này vì đang được sử dụng trong lịch đặt cố định hàng tuần đang hoạt động.");
         }

@@ -50,7 +50,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserDto createUser(UserDto userDto) {
         User user = mapToEntity(userDto);
-        // Thiết lập mật khẩu mặc định (được mã hóa) cho tài khoản mới do Admin tạo
+        
         user.setPassword(passwordEncoder.encode("123456"));
         User savedUser = userRepository.save(user);
 
@@ -67,7 +67,6 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + id));
         
-        // Ngăn khóa tài khoản Admin duy nhất
         if (com.quy.badmintonbe.common.enums.UserRole.ADMIN.equals(user.getRole()) && com.quy.badmintonbe.common.enums.UserStatus.LOCKED.equals(userDto.getStatus())) {
             long activeAdminCount = userRepository.findAll().stream()
                     .filter(u -> com.quy.badmintonbe.common.enums.UserRole.ADMIN.equals(u.getRole()) && com.quy.badmintonbe.common.enums.UserStatus.ACTIVE.equals(u.getStatus()))
@@ -88,7 +87,6 @@ public class UserServiceImpl implements UserService {
 
         User updatedUser = userRepository.save(user);
 
-        // Cập nhật liên kết phân công chi nhánh cho nhân viên / quản lý trong bảng staff_branches
         updateStaffBranchAssignment(updatedUser, userDto.getAssignedBranchId());
 
         return mapToDto(updatedUser);
@@ -100,7 +98,6 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + id));
         
-        // Ngăn xóa tài khoản Admin duy nhất
         if (com.quy.badmintonbe.common.enums.UserRole.ADMIN.equals(user.getRole())) {
             long adminCount = userRepository.findAll().stream()
                     .filter(u -> com.quy.badmintonbe.common.enums.UserRole.ADMIN.equals(u.getRole()))
@@ -110,7 +107,6 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // Xóa bản ghi phân công chi nhánh trước khi xóa người dùng
         List<StaffBranch> staffBranches = staffBranchRepository.findByUserId(id);
         if (!staffBranches.isEmpty()) {
             staffBranchRepository.deleteAll(staffBranches);

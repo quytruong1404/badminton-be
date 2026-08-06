@@ -91,13 +91,12 @@ public class PaymentServiceImpl implements PaymentService {
         if (success) {
             payment.setPaymentStatus(PaymentStatus.SUCCESS);
             payment.setPayDate(LocalDateTime.now());
-            // Cập nhật trạng thái đơn đặt sân
+            
             Booking booking = payment.getBooking();
             booking.setPaymentStatus(PaymentStatus.PAID);
             booking.setBookingStatus(BookingStatus.CONFIRMED);
             bookingRepository.save(booking);
 
-            // Nếu đây là Booking hóa đơn của Subscription, cập nhật Subscription sang ACTIVE
             if (booking.getBookingCode() != null && booking.getBookingCode().startsWith("BK-SUB-")) {
                 try {
                     Long subscriptionId = Long.parseLong(booking.getBookingCode().replace("BK-SUB-", ""));
@@ -116,7 +115,6 @@ public class PaymentServiceImpl implements PaymentService {
             booking.setPaymentStatus(PaymentStatus.FAILED);
             bookingRepository.save(booking);
 
-            // Nếu thanh toán thất bại, cập nhật Subscription sang CANCELLED
             if (booking.getBookingCode() != null && booking.getBookingCode().startsWith("BK-SUB-")) {
                 try {
                     Long subscriptionId = Long.parseLong(booking.getBookingCode().replace("BK-SUB-", ""));
@@ -163,7 +161,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt sân với ID: " + bookingId));
         validateBookingForPayment(booking);
 
-        // Tạo bản ghi giao dịch thanh toán ở trạng thái PENDING chờ xử lý
         String transactionCode = "VNP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         long amount = booking.getTotalPrice().multiply(BigDecimal.valueOf(100)).longValue();
         String initRaw = "{\"status\":\"PENDING\",\"vnp_TxnRef\":\"" + transactionCode + "\",\"vnp_Amount\":" + amount + "}";
@@ -186,7 +183,6 @@ public class PaymentServiceImpl implements PaymentService {
         String vnp_IpAddr = VNPayConfig.getIpAddress(request);
         String vnp_TmnCode = VNPayConfig.vnp_TmnCode;
 
-        // Nhân số tiền với 100 theo đúng định dạng yêu cầu của VNPay
         Map<String, String> vnp_Params = new java.util.HashMap<>();
         vnp_Params.put("vnp_Version", vnp_Version);
         vnp_Params.put("vnp_Command", vnp_Command);
@@ -200,7 +196,6 @@ public class PaymentServiceImpl implements PaymentService {
         vnp_Params.put("vnp_ReturnUrl", VNPayConfig.getReturnUrl(request));
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
-        // Định dạng ngày giờ giao dịch chuẩn múi giờ Việt Nam (Asia/Ho_Chi_Minh)
         TimeZone vnTimeZone = TimeZone.getTimeZone("Asia/Ho_Chi_Minh");
         Calendar cld = Calendar.getInstance(vnTimeZone);
         java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyyMMddHHmmss");
@@ -212,7 +207,6 @@ public class PaymentServiceImpl implements PaymentService {
         String vnp_ExpireDate = formatter.format(cld.getTime());
         vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
 
-        // Tạo chuỗi tham số để băm mã hóa chữ ký bảo mật và tạo chuỗi truy vấn
         List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
@@ -223,11 +217,11 @@ public class PaymentServiceImpl implements PaymentService {
                 String fieldName = itr.next();
                 String fieldValue = vnp_Params.get(fieldName);
                 if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                    // Tạo dữ liệu để băm mã hóa bảo mật
+                    
                     hashData.append(fieldName);
                     hashData.append('=');
                     hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-                    // Tạo dữ liệu truy vấn
+                    
                     query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
                     query.append('=');
                     query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
@@ -265,7 +259,6 @@ public class PaymentServiceImpl implements PaymentService {
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
 
-        // Nếu đây là Booking hóa đơn của Subscription, cập nhật Subscription sang ACTIVE
         if (booking.getBookingCode() != null && booking.getBookingCode().startsWith("BK-SUB-")) {
             try {
                 Long subscriptionId = Long.parseLong(booking.getBookingCode().replace("BK-SUB-", ""));

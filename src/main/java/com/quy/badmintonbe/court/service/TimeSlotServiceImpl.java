@@ -88,17 +88,14 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         TimeSlot slot = timeSlotRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ca chơi với ID: " + id));
         
-        // 1. Check if slot has any booking details (one-time bookings)
         if (bookingDetailRepository.existsBySlotId(id)) {
             throw new BadRequestException("Không thể xóa ca chơi này vì đã có lịch đặt lẻ của khách hàng trong hệ thống.");
         }
 
-        // 2. Check if slot is actively used in any subscription schedules (recurring bookings)
         if (subscriptionScheduleRepository.existsBySlotIdAndStatus(id, SlotStatus.ACTIVE)) {
             throw new BadRequestException("Không thể xóa ca chơi này vì đang được sử dụng trong lịch đặt cố định hàng tuần đang hoạt động.");
         }
 
-        // 3. Check if slot has any court reservations (temporary holds or details)
         if (courtReservationRepository.existsBySlotId(id)) {
             throw new BadRequestException("Không thể xóa ca chơi này vì đã có dữ liệu giữ chỗ hoặc đặt sân liên quan trong hệ thống. Bạn hãy đổi trạng thái ca chơi sang INACTIVE để ngưng hoạt động.");
         }

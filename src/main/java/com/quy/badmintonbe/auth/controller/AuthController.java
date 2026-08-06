@@ -30,7 +30,6 @@ public class AuthController {
         
         AuthResponse authResponse = authService.login(loginRequest);
         
-        // Store user DTO in session
         HttpSession session = request.getSession(true);
         session.setAttribute("currentUser", authResponse.getUser());
         
@@ -49,7 +48,6 @@ public class AuthController {
         
         AuthResponse authResponse = authService.register(registerRequest);
         
-        // Store registered user DTO in session
         HttpSession session = request.getSession(true);
         session.setAttribute("currentUser", authResponse.getUser());
         

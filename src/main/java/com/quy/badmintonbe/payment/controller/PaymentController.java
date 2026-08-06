@@ -66,7 +66,6 @@ public class PaymentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // 1. Khởi tạo đường dẫn thanh toán VNPay
     @GetMapping("/create-vnpay/{bookingId}")
     public ResponseEntity<ApiResponse<String>> createVNPayUrl(
             @PathVariable Long bookingId,
@@ -80,7 +79,6 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    // 2. Tiếp nhận kết quả callback từ VNPay
     @GetMapping("/vnpay-callback")
     public ResponseEntity<ApiResponse<PaymentDto>> vnpayCallback(
             @RequestParam Map<String, String> allRequestParams) {
@@ -89,7 +87,6 @@ public class PaymentController {
         String vnp_SecureHash = fields.remove("vnp_SecureHash");
         fields.remove("vnp_SecureHashType");
 
-        // Xác thực chữ ký bảo mật từ cổng VNPay
         String signValue = VNPayConfig.hashAllFields(fields);
         boolean isSignatureValid = signValue.equals(vnp_SecureHash);
 
@@ -97,7 +94,6 @@ public class PaymentController {
         String gatewayTransactionId = allRequestParams.get("vnp_TransactionNo");
         String responseCode = allRequestParams.get("vnp_ResponseCode");
 
-        // Mã phản hồi thành công của VNPay là "00"
         boolean success = isSignatureValid && "00".equals(responseCode);
         String rawResponseJson = allRequestParams.toString();
         
@@ -111,7 +107,6 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    // 3. Giả lập xác nhận thanh toán cho khách hàng
     @PostMapping("/{id}/confirm-mock")
     public ResponseEntity<ApiResponse<PaymentDto>> confirmMockPayment(@PathVariable Long id) {
         PaymentDto payment = paymentService.confirmMockPayment(id);

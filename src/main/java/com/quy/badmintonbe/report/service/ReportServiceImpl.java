@@ -45,32 +45,39 @@ public class ReportServiceImpl implements ReportService {
         List<Court> courts = courtRepository.findAll();
         List<TimeSlot> slots = timeSlotRepository.findAll();
 
-        // 1. Tính toán số liệu thống kê chung
         double totalRevenue = bookings.stream()
-                .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.COMPLETED)
-                .mapToDouble(b -> b.getTotalPrice().doubleValue())
+                .filter(b -> b != null && (b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.COMPLETED))
+                .mapToDouble(b -> b.getTotalPrice() != null ? b.getTotalPrice().doubleValue() : 0.0)
                 .sum() +
                 subscriptions.stream()
-                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.EXPIRED)
-                .mapToDouble(s -> s.getTotalPrice().doubleValue())
+                .filter(s -> s != null && (s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.EXPIRED))
+                .mapToDouble(s -> s.getTotalPrice() != null ? s.getTotalPrice().doubleValue() : 0.0)
                 .sum();
 
         long totalBookingsCount = bookings.stream()
-                .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.COMPLETED)
+                .filter(b -> b != null && (b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.COMPLETED))
                 .count();
 
         long totalSubscriptionsCount = subscriptions.stream()
-                .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.EXPIRED)
+                .filter(s -> s != null && (s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.EXPIRED))
                 .count();
 
-        // Tỷ lệ hủy sân
-        long totalDetailsCount = bookingDetails.size();
-        long cancelledDetailsCount = bookingDetails.stream()
-                .filter(d -> "CANCELLED".equals(d.getDetailStatus()))
+        long totalDetailsCount = bookingDetails.stream()
+                .filter(d -> d.getBooking() != null && (
+                        d.getBooking().getBookingStatus() == BookingStatus.CONFIRMED ||
+                        d.getBooking().getBookingStatus() == BookingStatus.COMPLETED ||
+                        d.getBooking().getPaymentStatus() == com.quy.badmintonbe.common.enums.PaymentStatus.REFUNDED
+                ))
                 .count();
+
+        long cancelledDetailsCount = bookingDetails.stream()
+                .filter(d -> d.getBooking() != null && 
+                             "CANCELLED".equals(d.getDetailStatus()) && 
+                             d.getBooking().getPaymentStatus() == com.quy.badmintonbe.common.enums.PaymentStatus.REFUNDED)
+                .count();
+
         double cancellationRate = totalDetailsCount > 0 ? ((double) cancelledDetailsCount / totalDetailsCount) * 100 : 0.0;
 
-        // 2. Doanh thu theo ngày, tháng, năm
         Map<String, Double> dailyMap = new HashMap<>();
         Map<String, Double> monthlyMap = new HashMap<>();
         Map<String, Double> yearlyMap = new HashMap<>();
@@ -79,7 +86,6 @@ public class ReportServiceImpl implements ReportService {
         DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
         DateTimeFormatter yearFormatter = DateTimeFormatter.ofPattern("yyyy");
 
-        // Cộng doanh thu từ đơn đặt ca lẻ
         bookings.stream()
                 .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.COMPLETED)
                 .forEach(b -> {
@@ -93,7 +99,6 @@ public class ReportServiceImpl implements ReportService {
                     yearlyMap.put(year, yearlyMap.getOrDefault(year, 0.0) + price);
                 });
 
-        // Cộng doanh thu từ lịch đặt cố định
         subscriptions.stream()
                 .filter(s -> s.getStatus() == SubscriptionStatus.ACTIVE || s.getStatus() == SubscriptionStatus.EXPIRED)
                 .forEach(s -> {
@@ -107,13 +112,11 @@ public class ReportServiceImpl implements ReportService {
                     yearlyMap.put(year, yearlyMap.getOrDefault(year, 0.0) + price);
                 });
 
-        // Chuyển sang danh sách đã sắp xếp
         List<DashboardReportDto.RevenueDataPoint> revenueDaily = dailyMap.entrySet().stream()
                 .map(e -> DashboardReportDto.RevenueDataPoint.builder().label(e.getKey()).amount(e.getValue()).build())
                 .sorted(Comparator.comparing(DashboardReportDto.RevenueDataPoint::getLabel))
                 .collect(Collectors.toList());
 
-        // Giới hạn 30 ngày gần nhất cho biểu đồ ngày để tránh quá tải hiển thị
         if (revenueDaily.size() > 30) {
             revenueDaily = revenueDaily.subList(revenueDaily.size() - 30, revenueDaily.size());
         }
@@ -128,7 +131,6 @@ public class ReportServiceImpl implements ReportService {
                 .sorted(Comparator.comparing(DashboardReportDto.RevenueDataPoint::getLabel))
                 .collect(Collectors.toList());
 
-        // 3. Doanh thu theo sân đấu
         Map<Long, Double> courtRevenueMap = new HashMap<>();
         bookingDetails.stream()
                 .filter(d -> !"CANCELLED".equals(d.getDetailStatus()) && 
@@ -139,10 +141,8 @@ public class ReportServiceImpl implements ReportService {
                     courtRevenueMap.put(courtId, courtRevenueMap.getOrDefault(courtId, 0.0) + price);
                 });
 
-        // Cộng thêm doanh thu từ lịch đặt cố định (SubscriptionSchedules)
         List<SubscriptionSchedule> subscriptionSchedules = subscriptionScheduleRepository.findAll();
         
-        // Nhóm lịch theo từng hợp đồng cố định để tính tổng số ca và phân bổ tỷ lệ doanh thu
         Map<Long, List<SubscriptionSchedule>> schedulesBySub = subscriptionSchedules.stream()
                 .filter(sched -> sched.getSubscription().getStatus() == SubscriptionStatus.ACTIVE || sched.getSubscription().getStatus() == SubscriptionStatus.EXPIRED)
                 .collect(Collectors.groupingBy(sched -> sched.getSubscription().getId()));
@@ -151,7 +151,6 @@ public class ReportServiceImpl implements ReportService {
             if (list.isEmpty()) return;
             Subscription sub = list.get(0).getSubscription();
             
-            // Tính số buổi cho mỗi lịch lặp lại
             Map<SubscriptionSchedule, Integer> sessionCounts = new HashMap<>();
             int totalSessionsInSub = 0;
             for (SubscriptionSchedule sched : list) {
@@ -190,13 +189,11 @@ public class ReportServiceImpl implements ReportService {
                 .sorted(Comparator.comparing(DashboardReportDto.CourtRevenueDto::getRevenue).reversed())
                 .collect(Collectors.toList());
 
-        // 4. Khung giờ được đặt nhiều nhất
         Map<Long, Long> slotCountMap = bookingDetails.stream()
                 .filter(d -> !"CANCELLED".equals(d.getDetailStatus()) &&
                              (d.getBooking().getBookingStatus() == BookingStatus.CONFIRMED || d.getBooking().getBookingStatus() == BookingStatus.COMPLETED))
                 .collect(Collectors.groupingBy(d -> d.getSlot().getId(), Collectors.counting()));
 
-        // Cộng thêm lượt đặt từ lịch đặt cố định (SubscriptionSchedules)
         subscriptionSchedules.stream()
                 .filter(sched -> sched.getSubscription().getStatus() == SubscriptionStatus.ACTIVE || sched.getSubscription().getStatus() == SubscriptionStatus.EXPIRED)
                 .forEach(sched -> {

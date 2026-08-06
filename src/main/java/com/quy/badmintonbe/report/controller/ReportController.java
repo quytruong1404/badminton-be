@@ -26,7 +26,6 @@ public class ReportController {
             throw new AppException("Yêu cầu đăng nhập trước khi thực hiện tác vụ.", 401);
         }
 
-        // Only allow ADMIN, MANAGER, STAFF roles to view reports
         if (currentUser.getRole() == UserRole.CUSTOMER) {
             throw new AppException("Bạn không có quyền xem báo cáo thống kê này.", 403);
         }

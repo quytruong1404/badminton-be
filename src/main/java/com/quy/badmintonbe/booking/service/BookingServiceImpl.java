@@ -15,6 +15,7 @@ import com.quy.badmintonbe.booking.repository.BookingDetailRepository;
 import com.quy.badmintonbe.booking.repository.BookingRepository;
 import com.quy.badmintonbe.booking.repository.BookingServiceRepository;
 import com.quy.badmintonbe.booking.repository.CourtReservationRepository;
+import com.quy.badmintonbe.booking.repository.CancellationPolicyRepository;
 import com.quy.badmintonbe.common.enums.BookingStatus;
 import com.quy.badmintonbe.common.enums.DayType;
 import com.quy.badmintonbe.common.enums.DiscountType;
@@ -80,6 +81,7 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final BranchInventoryService branchInventoryService;
+    private final CancellationPolicyRepository cancellationPolicyRepository;
 
     @Override
     public BookingResponse getBookingById(Long id) {
@@ -112,11 +114,10 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest dto) {
-        // 1. Verify user
+        
         User user = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + dto.getUserId()));
 
-        // Generate a unique booking code: BK-YYMMDD-XXXX (e.g. BK-260702-0001)
         ZoneId vietnamZone = ZoneId.of("Asia/Ho_Chi_Minh");
         LocalDate today = LocalDate.now(vietnamZone);
         String dateStr = today.format(DateTimeFormatter.ofPattern("yyMMdd"));
@@ -125,10 +126,8 @@ public class BookingServiceImpl implements BookingService {
         long countToday = bookingRepository.countByCreatedAtBetween(startOfDay, endOfDay);
         String bookingCode = String.format("BK-%s-%04d", dateStr, countToday + 1);
 
-        // Khởi tạo các biến tính tổng tiền
         BigDecimal subTotal = BigDecimal.ZERO;
 
-        // 2. Kiểm tra tính hợp lệ và giữ lịch các ca đấu
         List<BookingDetail> bookingDetailsToSave = new ArrayList<>();
         List<CourtReservation> reservationsToSave = new ArrayList<>();
 
@@ -145,6 +144,13 @@ public class BookingServiceImpl implements BookingService {
 
             com.quy.badmintonbe.branch.entity.Branch branch = court.getBranch();
             if (branch != null) {
+                if (com.quy.badmintonbe.common.enums.BranchStatus.MAINTENANCE.equals(branch.getStatus())) {
+                    throw new BadRequestException("Chi nhánh [" + branch.getName() + "] hiện đang bảo trì, tạm thời ngưng nhận đặt sân.");
+                }
+                if (com.quy.badmintonbe.common.enums.BranchStatus.CLOSED.equals(branch.getStatus())) {
+                    throw new BadRequestException("Chi nhánh [" + branch.getName() + "] hiện đang tạm đóng cửa.");
+                }
+
                 java.time.LocalTime startTime = slot.getStartTime();
                 java.time.LocalTime endTime = slot.getEndTime();
                 java.time.LocalTime openTime = branch.getOpenTime();
@@ -156,6 +162,10 @@ public class BookingServiceImpl implements BookingService {
                             + " nằm ngoài giờ hoạt động của chi nhánh " + branch.getName() 
                             + " (" + openTime.toString().substring(0, 5) + " - " + closeTime.toString().substring(0, 5) + ").");
                 }
+            }
+
+            if (com.quy.badmintonbe.common.enums.CourtStatus.MAINTENANCE.equals(court.getStatus())) {
+                throw new BadRequestException("Sân [" + court.getName() + "] hiện đang trong thời gian bảo trì.");
             }
 
             LocalDate bookingDate = detailDto.getBookingDate();
@@ -171,7 +181,6 @@ public class BookingServiceImpl implements BookingService {
                 }
             }
 
-            // Kiểm tra xem ca đấu đã được đặt hoặc đang hoạt động hay chưa
             boolean isAlreadyBooked = courtReservationRepository
                     .findByCourtIdAndReservationDate(court.getId(), bookingDate).stream()
                     .anyMatch(res -> res.getSlot().getId().equals(slot.getId()) && Boolean.TRUE.equals(res.getIsActive()));
@@ -181,11 +190,8 @@ public class BookingServiceImpl implements BookingService {
                         + slot.getStartTime() + " - " + slot.getEndTime() + " ngày " + bookingDate);
             }
 
-            // Xác định loại ngày (ngày thường hay cuối tuần)
-            // DayOfWeek: 1 (Thứ Hai) đến 7 (Chủ Nhật). Thứ Bảy (6) và Chủ Nhật (7) là cuối tuần
             DayType dayType = (bookingDate.getDayOfWeek().getValue() >= 6) ? DayType.WEEKEND : DayType.WEEKDAY;
 
-            // Lấy quy tắc tính giá tương ứng
             PricingRule pricingRule = pricingRuleRepository
                     .findByCourtIdAndSlotIdAndDayType(court.getId(), slot.getId(), dayType)
                     .orElseThrow(() -> new BadRequestException("Sân [" + court.getName() + "] vào ca " 
@@ -212,7 +218,6 @@ public class BookingServiceImpl implements BookingService {
             bookingDetailsToSave.add(detail);
         }
 
-        // 3. Xử lý các dịch vụ/sản phẩm đi kèm & Trừ tồn kho tại chi nhánh tương ứng
         List<BookingServiceItem> serviceItemsToSave = new ArrayList<>();
         if (dto.getServices() != null && !dto.getServices().isEmpty()) {
             Long bookingBranchId = bookingDetailsToSave.get(0).getCourt().getBranch().getId();
@@ -228,7 +233,6 @@ public class BookingServiceImpl implements BookingService {
                     throw new BadRequestException("Sản phẩm/Dịch vụ [" + product.getName() + "] hiện đang ngưng cung cấp.");
                 }
 
-                // Kiểm tra và trừ kho chi nhánh
                 branchInventoryService.deductStock(bookingBranchId, product.getId(), svcDto.getQuantity());
 
                 BigDecimal itemPrice = product.getPrice().multiply(BigDecimal.valueOf(svcDto.getQuantity()));
@@ -245,7 +249,6 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // 4. Kiểm tra tính hợp lệ và áp dụng mã giảm giá (Voucher)
         Voucher voucher = null;
         BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -276,7 +279,6 @@ public class BookingServiceImpl implements BookingService {
                 discountAmount = voucher.getDiscountValue();
             }
 
-            // Đảm bảo số tiền giảm giá không vượt quá tổng tiền trước giảm
             if (discountAmount.compareTo(subTotal) > 0) {
                 discountAmount = subTotal;
             }
@@ -287,7 +289,6 @@ public class BookingServiceImpl implements BookingService {
 
         BigDecimal totalPrice = subTotal.subtract(discountAmount);
 
-        // 5. Lưu thông tin hóa đơn Booking
         Booking booking = Booking.builder()
                 .bookingCode(bookingCode)
                 .user(user)
@@ -300,12 +301,10 @@ public class BookingServiceImpl implements BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
 
-        // 6. Lưu chi tiết đơn đặt và tạo lịch giữ sân
         for (BookingDetail detail : bookingDetailsToSave) {
             detail.setBooking(savedBooking);
             BookingDetail savedDetail = bookingDetailRepository.save(detail);
 
-            // Đăng ký thông tin giữ sân chống trùng
             CourtReservation reservation = CourtReservation.builder()
                     .court(savedDetail.getCourt())
                     .slot(savedDetail.getSlot())
@@ -320,7 +319,6 @@ public class BookingServiceImpl implements BookingService {
             courtReservationRepository.save(reservation);
         }
 
-        // 7. Lưu các dịch vụ đi kèm hóa đơn
         for (BookingServiceItem svcItem : serviceItemsToSave) {
             svcItem.setBooking(savedBooking);
             bookingServiceRepository.save(svcItem);
@@ -361,12 +359,10 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt sân với ID: " + id));
 
-        // Guard 1: Không cho hủy đơn Shadow Booking đại diện của Subscription
         if (booking.getBookingCode() != null && booking.getBookingCode().startsWith("BK-SUB-")) {
             throw new IllegalStateException("Không thể hủy hóa đơn đại diện của gói hội viên cố định. Hãy hủy gói đăng ký cố định thay thế.");
         }
 
-        // Guard 2: Không cho hủy đơn đã hoàn thành hoặc đã hủy trước đó
         if (BookingStatus.COMPLETED.equals(booking.getBookingStatus())) {
             throw new IllegalStateException("Không thể hủy đơn đặt sân đã hoàn thành.");
         }
@@ -374,7 +370,6 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Đơn đặt sân này đã được hủy trước đó.");
         }
 
-        // Guard 3: Không cho hủy nếu TẤT CẢ các ngày đặt sân đã qua
         List<BookingDetail> details = bookingDetailRepository.findByBookingId(id);
         boolean allDatesPassed = !details.isEmpty() && details.stream()
                 .allMatch(d -> d.getBookingDate().isBefore(java.time.LocalDate.now()));
@@ -382,11 +377,9 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Không thể hủy đơn đặt sân vì tất cả các ngày chơi đã qua.");
         }
 
-        // Thực hiện tính toán hoàn tiền nếu đơn đặt sân đã thanh toán thành công
         if (PaymentStatus.PAID.equals(booking.getPaymentStatus()) || PaymentStatus.SUCCESS.equals(booking.getPaymentStatus())) {
             booking.setPaymentStatus(PaymentStatus.REFUNDED);
 
-            // Tìm giao dịch thanh toán thành công
             List<Payment> payments = paymentRepository.findByBookingId(id);
             Payment successfulPayment = payments.stream()
                     .filter(p -> PaymentStatus.PAID.equals(p.getPaymentStatus()) || PaymentStatus.SUCCESS.equals(p.getPaymentStatus()))
@@ -394,7 +387,7 @@ public class BookingServiceImpl implements BookingService {
                     .orElse(null);
 
             if (successfulPayment != null) {
-                // Xác định giờ chơi của ca sớm nhất trong đơn
+                
                 LocalDateTime earliestPlayTime = null;
                 for (BookingDetail detail : details) {
                     LocalDateTime pt = LocalDateTime.of(detail.getBookingDate(), detail.getSlot().getStartTime());
@@ -403,23 +396,26 @@ public class BookingServiceImpl implements BookingService {
                     }
                 }
 
-                // Tính khoảng thời gian chênh lệch (tiếng) so với hiện tại
                 ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
                 LocalDateTime now = LocalDateTime.now(vnZone);
                 long hoursDiff = earliestPlayTime != null ? java.time.temporal.ChronoUnit.HOURS.between(now, earliestPlayTime) : 0;
 
+                Long bookingBranchId = details.get(0).getCourt().getBranch().getId();
+                List<com.quy.badmintonbe.booking.entity.CancellationPolicy> policies = cancellationPolicyRepository.findByBranchId(bookingBranchId);
+                policies.sort((p1, p2) -> Integer.compare(p2.getHoursBefore(), p1.getHoursBefore()));
+
                 BigDecimal refundPercentage = BigDecimal.ZERO;
-                if (hoursDiff >= 24) {
-                    refundPercentage = new BigDecimal("100.00");
-                } else if (hoursDiff >= 12) {
-                    refundPercentage = new BigDecimal("50.00");
+                for (com.quy.badmintonbe.booking.entity.CancellationPolicy policy : policies) {
+                    if (hoursDiff >= policy.getHoursBefore()) {
+                        refundPercentage = policy.getRefundPercentage();
+                        break;
+                    }
                 }
 
                 BigDecimal refundAmount = booking.getTotalPrice()
                         .multiply(refundPercentage)
                         .divide(new BigDecimal("100.00"), 2, java.math.RoundingMode.HALF_UP);
 
-                // Ghi nhận bản ghi hoàn tiền
                 String finalReason = (reason == null || reason.trim().isEmpty())
                         ? "Hủy lịch đặt sân ca lẻ " + booking.getBookingCode() + " (Hoàn " + refundPercentage + "%)"
                         : reason;
@@ -441,12 +437,10 @@ public class BookingServiceImpl implements BookingService {
         booking.setBookingStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
 
-        // Hủy các lịch giữ sân liên quan trong cơ sở dữ liệu
         for (BookingDetail detail : details) {
             detail.setDetailStatus("CANCELLED");
             bookingDetailRepository.save(detail);
 
-            // Hủy hoạt động giữ sân (sử dụng null để tránh trùng ràng buộc duy nhất)
             List<CourtReservation> reservations = courtReservationRepository
                     .findByCourtIdAndReservationDate(detail.getCourt().getId(), detail.getBookingDate());
 
@@ -455,7 +449,7 @@ public class BookingServiceImpl implements BookingService {
                     ReservationSourceType.BOOKING.equals(res.getSourceType()) &&
                     detail.getId().equals(res.getSourceId())) {
                     res.setStatus(ReservationStatus.CANCELLED);
-                    res.setIsActive(null); // nhả slot
+                    res.setIsActive(null); 
                     courtReservationRepository.save(res);
                 }
             }

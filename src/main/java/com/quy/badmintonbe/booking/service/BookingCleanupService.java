@@ -23,11 +23,6 @@ public class BookingCleanupService {
     private final BookingService bookingService;
     private final SystemConfigRepository systemConfigRepository;
 
-    /**
-     * Chạy mỗi 1 phút để kiểm tra các đơn đặt sân ở trạng thái PENDING nhưng
-     * vẫn chưa thanh toán (UNPAID) lâu hơn cấu hình hệ thống TIMEOUT_MINS (mặc định: 15 phút).
-     * Các đơn đặt này sẽ bị hủy tự động và giải phóng lịch giữ sân liên quan.
-     */
     @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void cleanupExpiredBookings() {
@@ -62,12 +57,7 @@ public class BookingCleanupService {
         }
     }
 
-    /**
-     * Chạy vào lúc 1:00 AM mỗi ngày để quét các đơn hàng có trạng thái CONFIRMED
-     * nhưng tất cả các ngày đặt chơi đã qua (nhỏ hơn ngày hiện tại).
-     * Các đơn hàng này sẽ được tự động cập nhật trạng thái thành COMPLETED (Hoàn tất).
-     */
-    @Scheduled(cron = "0 0 1 * * *")
+    @Scheduled(cron = "0 */5 * * * *")
     @Transactional
     public void autoUpdateCompletedBookings() {
         log.info("Bắt đầu quét và tự động hoàn tất các đơn đặt sân đã chơi xong...");

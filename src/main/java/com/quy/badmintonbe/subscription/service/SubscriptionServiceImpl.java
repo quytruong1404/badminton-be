@@ -43,6 +43,8 @@ import com.quy.badmintonbe.payment.repository.RefundRepository;
 import com.quy.badmintonbe.payment.entity.Payment;
 import com.quy.badmintonbe.payment.entity.Refund;
 
+import com.quy.badmintonbe.systemconfig.repository.SystemConfigRepository;
+
 @Service
 @RequiredArgsConstructor
 public class SubscriptionServiceImpl implements SubscriptionService {
@@ -59,6 +61,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final VoucherRepository voucherRepository;
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    private final SystemConfigRepository systemConfigRepository;
 
     @Override
     public SubscriptionDto getSubscriptionById(Long id) {
@@ -137,7 +140,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
                 subscriptionScheduleRepository.save(sched);
 
-                // Tự động tạo lịch giữ sân (CourtReservation) trong khoảng từ ngày bắt đầu đến ngày kết thúc
                 LocalDate start = savedSub.getStartDate();
                 LocalDate end = savedSub.getEndDate();
                 LocalDate curr = start;
@@ -161,7 +163,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             }
         }
 
-        // Tự động tạo một Booking hóa đơn đại diện cho Subscription để thực hiện thanh toán
         if (dto.getSchedules() != null && !dto.getSchedules().isEmpty()) {
             SubscriptionScheduleDto firstSched = dto.getSchedules().get(0);
             com.quy.badmintonbe.court.entity.Court court = courtRepository.findById(firstSched.getCourtId())
@@ -181,7 +182,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
             Booking savedBooking = bookingRepository.save(shadowBooking);
 
-            // Tạo chi tiết hóa đơn tượng trưng để thỏa mãn điều kiện details khác rỗng
             BookingDetail shadowDetail = BookingDetail.builder()
                     .booking(savedBooking)
                     .court(court)
@@ -242,7 +242,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         sub.setStatus(SubscriptionStatus.CANCELLED);
         subscriptionRepository.save(sub);
 
-        // Hủy các lịch giữ sân liên quan
         List<CourtReservation> reservations = courtReservationRepository
                 .findBySourceTypeAndSourceId(com.quy.badmintonbe.common.enums.ReservationSourceType.SUBSCRIPTION, id);
         for (CourtReservation res : reservations) {
@@ -251,7 +250,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             courtReservationRepository.save(res);
         }
 
-        // Xử lý hoàn trả tiền & ghi nhận bản ghi refunds
         Optional<Booking> optBooking = bookingRepository.findByBookingCode("BK-SUB-" + id);
         if (optBooking.isPresent()) {
             Booking booking = optBooking.get();
@@ -260,7 +258,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             if (PaymentStatus.PAID.equals(booking.getPaymentStatus()) || PaymentStatus.SUCCESS.equals(booking.getPaymentStatus())) {
                 booking.setPaymentStatus(PaymentStatus.REFUNDED);
 
-                // Tìm giao dịch thanh toán thành công của hóa đơn đại diện
                 List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
                 Payment successfulPayment = payments.stream()
                         .filter(p -> PaymentStatus.PAID.equals(p.getPaymentStatus()) || PaymentStatus.SUCCESS.equals(p.getPaymentStatus()))
@@ -268,15 +265,48 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                         .orElse(null);
 
                 if (successfulPayment != null) {
+                    ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+                    LocalDateTime now = LocalDateTime.now(vnZone);
+                    LocalDate today = now.toLocalDate();
+
                     long totalReservations = reservations.size();
                     long futureReservations = reservations.stream()
-                            .filter(res -> !res.getReservationDate().isBefore(java.time.LocalDate.now()))
+                            .filter(res -> {
+                                LocalDate rDate = res.getReservationDate();
+                                if (rDate.isBefore(today)) {
+                                    return false;
+                                }
+                                if (rDate.equals(today)) {
+                                    LocalDateTime sessionStart = LocalDateTime.of(rDate, res.getSlot().getStartTime());
+                                    return sessionStart.isAfter(now) && java.time.temporal.ChronoUnit.HOURS.between(now, sessionStart) >= 12;
+                                }
+                                return true;
+                            })
                             .count();
 
-                    // Xác định tỷ lệ hoàn tiền: nếu ngày hủy diễn ra trước ngày bắt đầu gói chơi thì hoàn 100%, ngược lại phạt 20% (hoàn 80%)
-                    BigDecimal refundPercentage = java.time.LocalDate.now().isBefore(sub.getStartDate())
+                    int minHours = systemConfigRepository.findByConfigKey("SUB_CANCEL_MIN_HOURS")
+                            .map(c -> {
+                                try { return Integer.parseInt(c.getConfigValue()); } catch (Exception e) { return 72; }
+                            })
+                            .orElse(72);
+
+                    BigDecimal penaltyPercent = systemConfigRepository.findByConfigKey("SUB_CANCEL_PENALTY_PERCENT")
+                            .map(c -> {
+                                try { return new BigDecimal(c.getConfigValue()); } catch (Exception e) { return new BigDecimal("20.00"); }
+                            })
+                            .orElse(new BigDecimal("20.00"));
+
+                    BigDecimal baseRefundPercentage = new BigDecimal("100.00").subtract(penaltyPercent);
+                    if (baseRefundPercentage.compareTo(BigDecimal.ZERO) < 0) {
+                        baseRefundPercentage = BigDecimal.ZERO;
+                    }
+
+                    LocalDateTime subStartDateTime = sub.getStartDate().atStartOfDay();
+                    long hoursBeforeSubStart = java.time.temporal.ChronoUnit.HOURS.between(now, subStartDateTime);
+
+                    BigDecimal refundPercentage = (today.isBefore(sub.getStartDate()) && hoursBeforeSubStart >= minHours)
                             ? new BigDecimal("100.00")
-                            : new BigDecimal("80.00");
+                            : baseRefundPercentage;
 
                     BigDecimal refundRatio = totalReservations > 0
                             ? new BigDecimal(futureReservations).divide(new BigDecimal(totalReservations), 4, java.math.RoundingMode.HALF_UP)
@@ -287,7 +317,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                             .multiply(refundPercentage)
                             .divide(new BigDecimal("100.00"), 2, java.math.RoundingMode.HALF_UP);
 
-                    // Tạo bản ghi hoàn tiền với lý do do khách chọn
                     String finalReason = (reason == null || reason.trim().isEmpty())
                             ? "Hủy lịch đăng ký cố định " + sub.getSubscriptionCode() + " (Hoàn tiền " + refundPercentage + "% cho " + futureReservations + "/" + totalReservations + " ca chưa chơi)"
                             : reason;

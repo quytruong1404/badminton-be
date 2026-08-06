@@ -48,7 +48,6 @@ public class ProductServiceImpl implements ProductService {
         Product product = mapToEntity(dto);
         Product savedProduct = productRepository.save(product);
 
-        // Tự động khởi tạo tồn kho cho sản phẩm mới tại tất cả chi nhánh
         branchRepository.findAll().forEach(branch -> {
             BranchInventory inv = BranchInventory.builder()
                     .branch(branch)

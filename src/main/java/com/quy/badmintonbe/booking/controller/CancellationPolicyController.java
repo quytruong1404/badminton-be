@@ -5,8 +5,10 @@ import com.quy.badmintonbe.booking.service.CancellationPolicyService;
 import com.quy.badmintonbe.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +35,17 @@ public class CancellationPolicyController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<CancellationPolicyDto>> createPolicy(@RequestBody CancellationPolicyDto dto) {
+        CancellationPolicyDto created = cancellationPolicyService.createPolicy(dto);
+        ApiResponse<CancellationPolicyDto> response = ApiResponse.<CancellationPolicyDto>builder()
+                .success(true)
+                .message("Cancellation policy created successfully")
+                .data(created)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<CancellationPolicyDto>> updatePolicy(
             @PathVariable Long id, @RequestBody CancellationPolicyDto dto) {
@@ -41,6 +54,16 @@ public class CancellationPolicyController {
                 .success(true)
                 .message("Cancellation policy updated successfully")
                 .data(updated)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deletePolicy(@PathVariable Long id) {
+        cancellationPolicyService.deletePolicy(id);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(true)
+                .message("Cancellation policy deleted successfully")
                 .build();
         return ResponseEntity.ok(response);
     }

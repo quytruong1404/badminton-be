@@ -102,7 +102,6 @@ public class BookingController {
         return ResponseEntity.ok(response);
     }
 
-    // Get list of occupied slot IDs for a specific court and date
     @GetMapping("/occupied-slots")
     public ResponseEntity<ApiResponse<List<Long>>> getOccupiedSlots(
             @RequestParam Long courtId,
