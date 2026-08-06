@@ -58,8 +58,8 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sản phẩm/dịch vụ với ID: " + productId));
 
-        Optional<BranchInventory> existing = branchInventoryRepository.findByBranchIdAndProductId(branchId, productId);
-        if (existing.isPresent()) {
+        List<BranchInventory> existingList = branchInventoryRepository.findAllByBranchIdAndProductId(branchId, productId);
+        if (!existingList.isEmpty()) {
             throw new BadRequestException("Sản phẩm [" + product.getName() + "] đã có trong kho của chi nhánh [" + branch.getName() + "].");
         }
 
@@ -116,8 +116,20 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
             return;
         }
 
-        BranchInventory inventory = branchInventoryRepository.findByBranchIdAndProductId(branchId, productId)
-                .orElseThrow(() -> new BadRequestException("Sản phẩm chưa được khởi tạo kho tại chi nhánh này."));
+        List<BranchInventory> inventories = branchInventoryRepository.findAllByBranchIdAndProductId(branchId, productId);
+        if (inventories.isEmpty()) {
+            throw new BadRequestException("Sản phẩm chưa được khởi tạo kho tại chi nhánh này.");
+        }
+
+        // Tự động sử dụng bản ghi đầu tiên và dọn dẹp các bản ghi trùng lặp nếu có trong DB
+        BranchInventory inventory = inventories.get(0);
+        if (inventories.size() > 1) {
+            for (int i = 1; i < inventories.size(); i++) {
+                try {
+                    branchInventoryRepository.delete(inventories.get(i));
+                } catch (Exception ignored) {}
+            }
+        }
 
         int currentStock = inventory.getQuantity() != null ? inventory.getQuantity() : 0;
         if (currentStock < quantityToDeduct) {

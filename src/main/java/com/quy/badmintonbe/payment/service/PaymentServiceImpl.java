@@ -6,7 +6,9 @@ import com.quy.badmintonbe.common.config.VNPayConfig;
 import com.quy.badmintonbe.common.enums.PaymentMethod;
 import com.quy.badmintonbe.common.enums.PaymentStatus;
 import com.quy.badmintonbe.common.enums.BookingStatus;
+import com.quy.badmintonbe.common.exception.BadRequestException;
 import com.quy.badmintonbe.common.exception.ResourceNotFoundException;
+import com.quy.badmintonbe.systemconfig.repository.SystemConfigRepository;
 import com.quy.badmintonbe.payment.dto.PaymentDto;
 import com.quy.badmintonbe.payment.entity.Payment;
 import com.quy.badmintonbe.payment.repository.PaymentRepository;
@@ -39,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final SystemConfigRepository systemConfigRepository;
 
     @Override
     public PaymentDto getPaymentById(Long id) {
@@ -133,11 +136,32 @@ public class PaymentServiceImpl implements PaymentService {
         return mapToDto(updatedPayment);
     }
 
+    private void validateBookingForPayment(Booking booking) {
+        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+            throw new BadRequestException("Đơn đặt sân " + booking.getBookingCode() + " đã bị hủy và không thể thanh toán.");
+        }
+        if (booking.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestException("Đơn đặt sân " + booking.getBookingCode() + " đã được thanh toán thành công trước đó.");
+        }
+
+        int timeoutMins = 15;
+        try {
+            timeoutMins = systemConfigRepository.findByConfigKey("TIMEOUT_MINS")
+                    .map(config -> Integer.parseInt(config.getConfigValue()))
+                    .orElse(15);
+        } catch (Exception ignored) {}
+
+        if (booking.getCreatedAt() != null && booking.getCreatedAt().plusMinutes(timeoutMins).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Đơn đặt sân " + booking.getBookingCode() + " đã quá thời hạn " + timeoutMins + " phút chờ thanh toán. Vui lòng tạo đơn mới.");
+        }
+    }
+
     @Override
     @Transactional
     public String createVNPayUrl(Long bookingId, HttpServletRequest request) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt sân với ID: " + bookingId));
+        validateBookingForPayment(booking);
 
         // Tạo bản ghi giao dịch thanh toán ở trạng thái PENDING chờ xử lý
         String transactionCode = "VNP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -228,6 +252,8 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentDto confirmMockPayment(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch thanh toán với ID: " + paymentId));
+
+        validateBookingForPayment(payment.getBooking());
 
         payment.setPaymentStatus(PaymentStatus.SUCCESS);
         payment.setPayDate(LocalDateTime.now());

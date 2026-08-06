@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface BranchInventoryRepository extends JpaRepository<BranchInventory, Long> {
     List<BranchInventory> findByBranchId(Long branchId);
     Optional<BranchInventory> findByBranchIdAndProductId(Long branchId, Long productId);
+    List<BranchInventory> findAllByBranchIdAndProductId(Long branchId, Long productId);
 }
