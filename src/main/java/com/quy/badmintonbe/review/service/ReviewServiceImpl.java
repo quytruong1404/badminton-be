@@ -97,9 +97,10 @@ public class ReviewServiceImpl implements ReviewService {
     private ReviewDto mapToDto(Review review) {
         return ReviewDto.builder()
                 .id(review.getId())
-                .userId(review.getUser().getId())
-                .courtId(review.getCourt().getId())
-                .bookingDetailId(review.getBookingDetail().getId())
+                .userId(review.getUser() != null ? review.getUser().getId() : null)
+                .userFullName(review.getUser() != null ? review.getUser().getFullName() : "Khách hàng")
+                .courtId(review.getCourt() != null ? review.getCourt().getId() : null)
+                .bookingDetailId(review.getBookingDetail() != null ? review.getBookingDetail().getId() : null)
                 .rating(review.getRating())
                 .comment(review.getComment())
                 .createdAt(review.getCreatedAt())

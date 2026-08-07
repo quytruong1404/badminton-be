@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 public class ReviewDto {
     private Long id;
     private Long userId;
+    private String userFullName;
     private Long courtId;
     private Long bookingDetailId;
     private Integer rating;
