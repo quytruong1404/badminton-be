@@ -326,7 +326,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                             .refundCode("RF-SUB-" + sub.getSubscriptionCode() + "-" + System.currentTimeMillis())
                             .refundAmount(refundAmount)
                             .refundReason(finalReason)
-                            .status(PaymentStatus.SUCCESS)
+                            .status("SUCCESS")
                             .build();
 
                     refundRepository.save(refund);

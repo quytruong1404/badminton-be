@@ -425,7 +425,7 @@ public class BookingServiceImpl implements BookingService {
                         .refundCode("RF-" + booking.getBookingCode() + "-" + System.currentTimeMillis())
                         .refundAmount(refundAmount)
                         .refundReason(finalReason)
-                        .status(PaymentStatus.SUCCESS)
+                        .status("SUCCESS")
                         .build();
 
                 refundRepository.save(refund);
