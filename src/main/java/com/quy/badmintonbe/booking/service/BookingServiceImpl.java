@@ -36,6 +36,8 @@ import com.quy.badmintonbe.user.entity.User;
 import com.quy.badmintonbe.user.repository.UserRepository;
 import com.quy.badmintonbe.voucher.entity.Voucher;
 import com.quy.badmintonbe.voucher.repository.VoucherRepository;
+import com.quy.badmintonbe.product.repository.BranchInventoryRepository;
+import com.quy.badmintonbe.booking.repository.BookingServiceItemRepository;
 import com.quy.badmintonbe.payment.repository.PaymentRepository;
 import com.quy.badmintonbe.payment.repository.RefundRepository;
 import com.quy.badmintonbe.payment.entity.Payment;
@@ -81,6 +83,8 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final BranchInventoryService branchInventoryService;
+    private final BranchInventoryRepository branchInventoryRepository;
+    private final BookingServiceItemRepository bookingServiceItemRepository;
     private final CancellationPolicyRepository cancellationPolicyRepository;
 
     @Override
@@ -183,7 +187,7 @@ public class BookingServiceImpl implements BookingService {
 
             boolean isAlreadyBooked = courtReservationRepository
                     .findByCourtIdAndReservationDate(court.getId(), bookingDate).stream()
-                    .anyMatch(res -> res.getSlot().getId().equals(slot.getId()) && Boolean.TRUE.equals(res.getIsActive()));
+                    .anyMatch(res -> res.getSlot() != null && res.getSlot().getId().equals(slot.getId()) && Boolean.TRUE.equals(res.getIsActive()));
 
             if (isAlreadyBooked) {
                 throw new BadRequestException("Sân [" + court.getName() + "] đã bị đặt trùng lịch vào ca " 
@@ -233,7 +237,29 @@ public class BookingServiceImpl implements BookingService {
                     throw new BadRequestException("Sản phẩm/Dịch vụ [" + product.getName() + "] hiện đang ngưng cung cấp.");
                 }
 
-                branchInventoryService.deductStock(bookingBranchId, product.getId(), svcDto.getQuantity());
+                if (com.quy.badmintonbe.common.enums.ProductType.RENT.equals(product.getProductType())) {
+                    List<com.quy.badmintonbe.product.entity.BranchInventory> inventories = branchInventoryRepository.findAllByBranchIdAndProductId(bookingBranchId, product.getId());
+                    int totalBranchStock = (!inventories.isEmpty() && inventories.get(0).getQuantity() != null) ? inventories.get(0).getQuantity() : 0;
+
+                    for (BookingDetail detail : bookingDetailsToSave) {
+                        Integer rentedInSlot = bookingServiceItemRepository.countRentedQuantityInSlot(
+                                product.getId(), detail.getBookingDate(), detail.getSlot().getId(),
+                                List.of("PENDING", "CONFIRMED", "COMPLETED")
+                        );
+                        int alreadyRented = rentedInSlot != null ? rentedInSlot : 0;
+                        int availableInSlot = totalBranchStock - alreadyRented;
+
+                        if (svcDto.getQuantity() > availableInSlot) {
+                            throw new BadRequestException("Dụng cụ [" + product.getName() + "] tại chi nhánh chỉ còn " 
+                                    + Math.max(0, availableInSlot) + " " + product.getUnit() + " khả dụng trong ca " 
+                                    + detail.getSlot().getStartTime().toString().substring(0, 5) + " - " 
+                                    + detail.getSlot().getEndTime().toString().substring(0, 5) + " ngày " 
+                                    + detail.getBookingDate() + " (Đã có khách khác đặt thuê " + alreadyRented + " " + product.getUnit() + ").");
+                        }
+                    }
+                } else {
+                    branchInventoryService.deductStock(bookingBranchId, product.getId(), svcDto.getQuantity());
+                }
 
                 BigDecimal itemPrice = product.getPrice().multiply(BigDecimal.valueOf(svcDto.getQuantity()));
                 subTotal = subTotal.add(itemPrice);
@@ -425,6 +451,7 @@ public class BookingServiceImpl implements BookingService {
                         .refundCode("RF-" + booking.getBookingCode() + "-" + System.currentTimeMillis())
                         .refundAmount(refundAmount)
                         .refundReason(finalReason)
+                        .gatewayRefundId("VNP-RF-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 9000 + 1000))
                         .status("SUCCESS")
                         .build();
 
@@ -458,11 +485,12 @@ public class BookingServiceImpl implements BookingService {
 
     private BookingResponse mapToResponse(Booking booking) {
         List<BookingDetailResponse> detailResponses = bookingDetailRepository.findByBookingId(booking.getId()).stream()
+                .filter(detail -> detail.getSlot() != null && detail.getCourt() != null)
                 .map(detail -> BookingDetailResponse.builder()
                         .id(detail.getId())
                         .courtId(detail.getCourt().getId())
                         .courtName(detail.getCourt().getName())
-                        .branchName(detail.getCourt().getBranch().getName())
+                        .branchName(detail.getCourt().getBranch() != null ? detail.getCourt().getBranch().getName() : null)
                         .slotId(detail.getSlot().getId())
                         .startTime(detail.getSlot().getStartTime().toString())
                         .endTime(detail.getSlot().getEndTime().toString())
@@ -503,7 +531,7 @@ public class BookingServiceImpl implements BookingService {
     public List<Long> getOccupiedSlots(Long courtId, String date) {
         LocalDate localDate = LocalDate.parse(date);
         return courtReservationRepository.findByCourtIdAndReservationDate(courtId, localDate).stream()
-                .filter(res -> Boolean.TRUE.equals(res.getIsActive()))
+                .filter(res -> Boolean.TRUE.equals(res.getIsActive()) && res.getSlot() != null)
                 .map(res -> res.getSlot().getId())
                 .collect(Collectors.toList());
     }

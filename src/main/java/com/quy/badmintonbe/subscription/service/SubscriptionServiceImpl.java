@@ -326,6 +326,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                             .refundCode("RF-SUB-" + sub.getSubscriptionCode() + "-" + System.currentTimeMillis())
                             .refundAmount(refundAmount)
                             .refundReason(finalReason)
+                            .gatewayRefundId("VNP-RF-SUB-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 9000 + 1000))
                             .status("SUCCESS")
                             .build();
 

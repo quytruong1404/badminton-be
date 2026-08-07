@@ -130,6 +130,13 @@ public class BranchInventoryServiceImpl implements BranchInventoryService {
             }
         }
 
+        Product product = inventory.getProduct();
+        if (product != null && com.quy.badmintonbe.common.enums.ProductType.RENT.equals(product.getProductType())) {
+            // Với mặt hàng CHO THUÊ (RENT): Không trừ vĩnh viễn tồn kho tổng của chi nhánh.
+            // Dụng cụ (vợt, giày, thảm) được khách trả lại quầy sau ca chơi để xoay vòng cho các ca sau tiếp tục thuê.
+            return;
+        }
+
         int currentStock = inventory.getQuantity() != null ? inventory.getQuantity() : 0;
         if (currentStock < quantityToDeduct) {
             throw new BadRequestException("Sản phẩm [" + inventory.getProduct().getName() + "] tại chi nhánh [" 
