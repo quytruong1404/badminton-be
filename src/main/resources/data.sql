@@ -116,40 +116,103 @@ UPDATE `users` SET `password` = '$2a$10$q8yBkWgMk/CuuL3vWwYtAOzBb2Mdex4S4Dvk12x4
 DELETE FROM `court_images`;
 
 INSERT IGNORE INTO `court_images` (`id`, `court_id`, `image_url`, `is_primary`, `created_at`) VALUES
-
+-- Sân 1
 (1, 1, '/courts/sân-1-1.jpg', TRUE, CURRENT_TIMESTAMP),
 (2, 1, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(3, 1, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(4, 1, '/courts/sân-4-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(5, 1, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(3, 2, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
-(4, 2, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+-- Sân 2
+(6, 2, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(7, 2, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(8, 2, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(9, 2, '/courts/sân-4-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(10, 2, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(5, 3, '/courts/sân-1-2.jpg', TRUE, CURRENT_TIMESTAMP),
-(6, 3, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
+-- Sân 3
+(11, 3, '/courts/sân-3-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(12, 3, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(13, 3, '/courts/sân-3-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(14, 3, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(15, 3, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(7, 4, '/courts/sân-2-2.jpg', TRUE, CURRENT_TIMESTAMP),
-(8, 4, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
+-- Sân 4
+(16, 4, '/courts/sân-4-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(17, 4, '/courts/sân-4-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(18, 4, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(19, 4, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(20, 4, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(9, 5, '/courts/sân-1-1.jpg', TRUE, CURRENT_TIMESTAMP),
-(10, 5, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
+-- Sân 5
+(21, 5, '/courts/sân-1-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(22, 5, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(23, 5, '/courts/sân-3-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(24, 5, '/courts/sân-4-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(25, 5, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(11, 6, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
-(12, 6, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+-- Sân 6
+(26, 6, '/courts/sân-2-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(27, 6, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(28, 6, '/courts/sân-4-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(29, 6, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(30, 6, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(13, 7, '/courts/sân-2-2.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 7
+(31, 7, '/courts/sân-3-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(32, 7, '/courts/sân-3-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(33, 7, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(34, 7, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(35, 7, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(14, 8, '/courts/sân-1-1.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 8
+(36, 8, '/courts/sân-4-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(37, 8, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(38, 8, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(39, 8, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(40, 8, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(15, 9, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 9
+(41, 9, '/courts/sân-1-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(42, 9, '/courts/sân-3-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(43, 9, '/courts/sân-4-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(44, 9, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(45, 9, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(16, 10, '/courts/sân-1-2.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 10
+(46, 10, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(47, 10, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(48, 10, '/courts/sân-4-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(49, 10, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(50, 10, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(17, 11, '/courts/sân-2-2.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 11
+(51, 11, '/courts/sân-3-3.jpg', TRUE, CURRENT_TIMESTAMP),
+(52, 11, '/courts/sân-4-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(53, 11, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(54, 11, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(55, 11, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(18, 12, '/courts/sân-1-1.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 12
+(56, 12, '/courts/sân-4-1.jpg', TRUE, CURRENT_TIMESTAMP),
+(57, 12, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(58, 12, '/courts/sân-2-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(59, 12, '/courts/sân-1-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(60, 12, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(19, 13, '/courts/sân-2-1.jpg', TRUE, CURRENT_TIMESTAMP),
+-- Sân 13
+(61, 13, '/courts/sân-1-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(62, 13, '/courts/sân-2-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(63, 13, '/courts/sân-3-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(64, 13, '/courts/sân-4-2.jpg', FALSE, CURRENT_TIMESTAMP),
+(65, 13, '/courts/sân-3-3.jpg', FALSE, CURRENT_TIMESTAMP),
 
-(20, 14, '/courts/sân-1-2.jpg', TRUE, CURRENT_TIMESTAMP);
+-- Sân 14
+(66, 14, '/courts/sân-2-2.jpg', TRUE, CURRENT_TIMESTAMP),
+(67, 14, '/courts/sân-3-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(68, 14, '/courts/sân-4-3.jpg', FALSE, CURRENT_TIMESTAMP),
+(69, 14, '/courts/sân-1-1.jpg', FALSE, CURRENT_TIMESTAMP),
+(70, 14, '/courts/sân-4-1.jpg', FALSE, CURRENT_TIMESTAMP);
 
 DELETE FROM `cancellation_policies`;
 INSERT IGNORE INTO `cancellation_policies` (`id`, `branch_id`, `hours_before`, `refund_percentage`, `status`) VALUES
